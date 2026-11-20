@@ -23,7 +23,7 @@ use embassy_rp::{
     bind_interrupts,
     dma::InterruptHandler as DmaHandler,
     i2c::{InterruptHandler as I2cHandler},
-    peripherals::{DMA_CH0, I2C0, PIO0, USB},
+    peripherals::{DMA_CH0, I2C0, I2C1, PIO0, USB},
     pio::InterruptHandler as PioHanlder,
     usb::{Driver as UsbDriver, InterruptHandler as UsbHandler},
 };
@@ -32,19 +32,18 @@ use log::{error, info};
 
 /* Tasks */
 mod tasks;
-use tasks::{bme280_task::bme280_task, logger_task::logger_task};
+use tasks::{bme280_task::bme280_task, logger_task::logger_task, mpu6050_task::mpu6050_task, qmc5883_task::qmc5883p_task};
 
 /* Drivers */
 mod drivers;
-use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050};
-
-use crate::tasks::mpu6050_task::mpu6050_task;
+use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050, qmc5883p_driver::init_qmc5883p};
 
 /* Interrupt Handlers */
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => PioHanlder<PIO0>;
     DMA_IRQ_0 => DmaHandler<DMA_CH0>;
     I2C0_IRQ => I2cHandler<I2C0>;
+    I2C1_IRQ => I2cHandler<I2C1>;
     USBCTRL_IRQ =>UsbHandler<USB>;
 });
 
@@ -154,7 +153,7 @@ async fn main(spawner: Spawner) {
         },
     };
 
-    /* Configure and read MPU 6050 Sensor */
+    /* Configure MPU 6050 Sensor */
     info!("Configure MPU 6050 sensor");
     let mpu6050_i2c = p.I2C0;
     let mpu6050_sda = p.PIN_4;
@@ -167,9 +166,23 @@ async fn main(spawner: Spawner) {
         }
     };
 
+    /* Configure QMC 5883P */
+    info!("Configure QMC 5883P sensor");
+    let qmc5883p_i2c = p.I2C1;
+    let qmc5883p_sda = p.PIN_14;
+    let qmc5883p_scl = p.PIN_15;
+    let qmc5883p = match init_qmc5883p(qmc5883p_i2c, qmc5883p_scl, qmc5883p_sda, Irqs).await {
+        Ok(q) => q,
+        Err(_) => loop {
+            error!("QMC 5883P init failed, check wiring");
+            Timer::after_secs(1).await;
+        }
+    };
+
     info!("Spawn sensor tasks");
     spawner.spawn(bme280_task(bme280).unwrap());
     spawner.spawn(mpu6050_task(mpu6050).unwrap());
+    spawner.spawn(qmc5883p_task(qmc5883p).unwrap());
 }
 
 /* Metadata */
