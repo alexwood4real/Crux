@@ -22,7 +22,7 @@ use embassy_executor::Spawner;
 use embassy_rp::{
     bind_interrupts,
     dma::InterruptHandler as DmaHandler,
-    i2c::InterruptHandler as I2cHandler,
+    i2c::{InterruptHandler as I2cHandler},
     peripherals::{DMA_CH0, I2C0, PIO0, USB},
     pio::InterruptHandler as PioHanlder,
     usb::{Driver as UsbDriver, InterruptHandler as UsbHandler},
@@ -36,7 +36,9 @@ use tasks::{bme280_task::bme280_task, logger_task::logger_task};
 
 /* Drivers */
 mod drivers;
-use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43};
+use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050};
+
+use crate::tasks::mpu6050_task::mpu6050_task;
 
 /* Interrupt Handlers */
 bind_interrupts!(struct Irqs {
@@ -139,12 +141,12 @@ async fn main(spawner: Spawner) {
 
     /* Configure BME 280 sensor */
     info!("Configure BME 280 sensor");
-    let spi = p.SPI0;
-    let sck = p.PIN_18;
-    let sdi = p.PIN_19;
-    let sdo = p.PIN_16;
-    let cs = p.PIN_17;
-    let bme280 = match init_bme280(spi, sck, sdi, sdo, cs) {
+    let bme280_spi = p.SPI0;
+    let bme280_sck = p.PIN_18;
+    let bme280_sdi = p.PIN_19;
+    let bme280_sdo = p.PIN_16;
+    let bme280_cs = p.PIN_17;
+    let bme280 = match init_bme280(bme280_spi, bme280_sck, bme280_sdi, bme280_sdo, bme280_cs) {
         Ok(b) => b,
         Err(_) => loop {
             error!("BME 280 init failed, check wiring");
@@ -152,9 +154,22 @@ async fn main(spawner: Spawner) {
         },
     };
 
-    /* launch sensor tasks */
+    /* Configure and read MPU 6050 Sensor */
+    info!("Configure MPU 6050 sensor");
+    let mpu6050_i2c = p.I2C0;
+    let mpu6050_sda = p.PIN_4;
+    let mpu6050_scl = p.PIN_5;
+    let mpu6050 = match init_mpu6050(mpu6050_i2c, mpu6050_scl, mpu6050_sda).await {
+        Ok(m) => m,
+        Err(_) => loop {
+            error!("MPU 6050 init failed, check wiring");
+            Timer::after_secs(1).await;
+        }
+    };
+
     info!("Spawn sensor tasks");
     spawner.spawn(bme280_task(bme280).unwrap());
+    spawner.spawn(mpu6050_task(mpu6050).unwrap());
 }
 
 /* Metadata */

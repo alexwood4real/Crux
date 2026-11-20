@@ -28,7 +28,8 @@ pub async fn bme280_task(mut bme280: BME280<BME280Spi>) -> ! {
 
         /* compute weather data from sensor data */
         if let Some(weather_data) = sensor_data.calculate() {
-            /* DEBUG print weather data */
+            /* calculate weather data */
+            // DEBUG: info!("BME OK");
             info!("Temperature: {} C", weather_data.temperature);
             info!("Pressure: {} hPa", weather_data.pressure);
             info!("Humidity: {} %", weather_data.humidity);
