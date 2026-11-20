@@ -22,14 +22,13 @@ use embassy_executor::Spawner;
 use embassy_rp::{
     bind_interrupts,
     dma::InterruptHandler as DmaHandler,
-    i2c::{InterruptHandler as I2cHandler, Config as I2cConfig, I2c},
+    i2c::{InterruptHandler as I2cHandler},
     peripherals::{DMA_CH0, I2C0, PIO0, USB},
     pio::InterruptHandler as PioHanlder,
     usb::{Driver as UsbDriver, InterruptHandler as UsbHandler},
 };
 use embassy_time::{Duration, Timer};
 use log::{error, info};
-use mpu6050_nostd::{AccelRange, Mpu6050, registers::ADDR_AD0_LOW};
 
 /* Tasks */
 mod tasks;
@@ -37,7 +36,9 @@ use tasks::{bme280_task::bme280_task, logger_task::logger_task};
 
 /* Drivers */
 mod drivers;
-use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43};
+use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050};
+
+use crate::tasks::mpu6050_task::mpu6050_task;
 
 /* Interrupt Handlers */
 bind_interrupts!(struct Irqs {
@@ -153,68 +154,22 @@ async fn main(spawner: Spawner) {
         },
     };
 
-    /* launch sensor tasks */
-    info!("Spawn sensor tasks");
-    spawner.spawn(bme280_task(bme280).unwrap());
-
     /* Configure and read MPU 6050 Sensor */
     info!("Configure MPU 6050 sensor");
     let mpu6050_i2c = p.I2C0;
     let mpu6050_sda = p.PIN_4;
     let mpu6050_scl = p.PIN_5;
-    let mut i2c = I2c::new_blocking(mpu6050_i2c, mpu6050_scl, mpu6050_sda, I2cConfig::default());
-    /* TODO: put in README because this is so useful i did it with the bme as */
-    // let mut i2c = I2c::new_blocking(mpu6050_i2c, mpu6050_scl, mpu6050_sda, I2cConfig::default());
-    // let mut id = [0u8];
-    // match i2c.blocking_write_read(0x68u8, &[0x75], &mut id) {
-    //     Ok(()) => info!("MPU WHO_AM_I = {:#04x}", id[0]), // 0x68 expected; clones may differ
-    //     Err(e) => error!("no MPU6050 at 0x68: {:?}", e),
-    // }
-
-    // 1. Is it asleep? (0x40 = sleep bit set)
-    let mut pwr = [0u8];
-    let _ = i2c.blocking_write_read(0x68u8, &[0x6B], &mut pwr);
-    info!("PWR_MGMT_1 = {:#04x}", pwr[0]);
-
-    // 2. Wake it: clear sleep, use the gyro X clock
-    if let Err(e) = i2c.blocking_write(0x68u8, &[0x6B, 0x01]) {
-        error!("wake failed: {:?}", e);
-    }
-    Timer::after_millis(100).await;
-
-    // 3. Raw read: accel X/Y/Z, temp, gyro X/Y/Z (14 bytes from 0x3B)
-    let mut raw = [0u8; 14];
-    match i2c.blocking_write_read(0x68u8, &[0x3B], &mut raw) {
-        Ok(()) => {
-            let ax = i16::from_be_bytes([raw[0], raw[1]]);
-            let ay = i16::from_be_bytes([raw[2], raw[3]]);
-            let az = i16::from_be_bytes([raw[4], raw[5]]);
-            info!("raw ax={} ay={} az={}", ax, ay, az);
+    let mpu6050 = match init_mpu6050(mpu6050_i2c, mpu6050_scl, mpu6050_sda).await {
+        Ok(m) => m,
+        Err(_) => loop {
+            error!("MPU 6050 init failed, check wiring");
+            Timer::after_secs(1).await;
         }
-        Err(e) => error!("raw read failed: {:?}", e),
-    }
+    };
 
-    /* -------------------- */
-    
-    let mut mpu6050 = Mpu6050::new(i2c, ADDR_AD0_LOW);
-    if let Err(e) = mpu6050.init(){
-        error!("failed to init mpu6050: {:?}", e);
-        return;
-    } Timer::after_millis(100).await;
-
-    if let Err(e) = mpu6050.set_accel_range(AccelRange::G8) {
-        error!("Failed to set range: {:?}", e);
-        return;
-    }Timer::after_millis(50).await;
-    
-    loop {
-    match mpu6050.accel_g() {
-        Ok([x, y, z]) => info!("accel g: x={} y={} z={}", x, y, z),
-        Err(e) => error!("Failed to read MPU: {:?}", e),
-    }
-    Timer::after_millis(100).await;
-}
-
+    info!("Spawn sensor tasks");
+    spawner.spawn(bme280_task(bme280).unwrap());
+    spawner.spawn(mpu6050_task(mpu6050).unwrap());
 }
 
 /* Metadata */
