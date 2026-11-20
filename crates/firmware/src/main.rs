@@ -22,7 +22,7 @@ use embassy_executor::Spawner;
 use embassy_rp::{
     bind_interrupts,
     dma::InterruptHandler as DmaHandler,
-    i2c::{InterruptHandler as I2cHandler, I2c, Config as I2cConfig},
+    i2c::{InterruptHandler as I2cHandler},
     peripherals::{DMA_CH0, I2C0, I2C1, PIO0, USB},
     pio::InterruptHandler as PioHanlder,
     usb::{Driver as UsbDriver, InterruptHandler as UsbHandler},
@@ -30,16 +30,13 @@ use embassy_rp::{
 use embassy_time::{Duration, Timer};
 use log::{error, info};
 
-/* QMC 5883P Crates*/
-use qmc5883p::{Range, Mode,Qmc5883p, Qmc5883PConfig, OutputDataRate, OverSampleRate, OverSampleRatio1};
-
 /* Tasks */
 mod tasks;
-use tasks::{bme280_task::bme280_task, logger_task::logger_task, mpu6050_task::mpu6050_task};
+use tasks::{bme280_task::bme280_task, logger_task::logger_task, mpu6050_task::mpu6050_task, qmc5883_task::qmc5883p_task};
 
 /* Drivers */
 mod drivers;
-use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050};
+use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050, qmc5883p_driver::init_qmc5883p};
 
 /* Interrupt Handlers */
 bind_interrupts!(struct Irqs {
@@ -148,7 +145,7 @@ async fn main(spawner: Spawner) {
     let bme280_sdi = p.PIN_19;
     let bme280_sdo = p.PIN_16;
     let bme280_cs = p.PIN_17;
-    let _bme280 = match init_bme280(bme280_spi, bme280_sck, bme280_sdi, bme280_sdo, bme280_cs) {
+    let bme280 = match init_bme280(bme280_spi, bme280_sck, bme280_sdi, bme280_sdo, bme280_cs) {
         Ok(b) => b,
         Err(_) => loop {
             error!("BME 280 init failed, check wiring");
@@ -161,7 +158,7 @@ async fn main(spawner: Spawner) {
     let mpu6050_i2c = p.I2C0;
     let mpu6050_sda = p.PIN_4;
     let mpu6050_scl = p.PIN_5;
-    let _mpu6050 = match init_mpu6050(mpu6050_i2c, mpu6050_scl, mpu6050_sda).await {
+    let mpu6050 = match init_mpu6050(mpu6050_i2c, mpu6050_scl, mpu6050_sda).await {
         Ok(m) => m,
         Err(_) => loop {
             error!("MPU 6050 init failed, check wiring");
@@ -169,58 +166,23 @@ async fn main(spawner: Spawner) {
         }
     };
 
-    /* Main: Set up I2C1 for QMC 5883P */
+    /* Configure QMC 5883P */
+    info!("Configure QMC 5883P sensor");
     let qmc5883p_i2c = p.I2C1;
     let qmc5883p_sda = p.PIN_14;
     let qmc5883p_scl = p.PIN_15;
-    let i2c1 = I2c::new_async(qmc5883p_i2c, qmc5883p_scl, qmc5883p_sda, Irqs, I2cConfig::default());
-
-    /* Driver: Configure QMC 5883P Sensor */
-    let qmc5883p_config = Qmc5883PConfig::default()
-        .with_mode(Mode::Continuous)
-        .with_odr(OutputDataRate::Hz100)
-        .with_range(Range::Gauss8)
-        .with_osr1(OverSampleRatio1::Ratio4)
-        .with_osr2(OverSampleRate::Rate4);
-
-    /* Driver: Initialize QMC 5883P Sensor */
-    let mut qmc5883p = Qmc5883p::new(i2c1);
-    if let Err(e) = qmc5883p.init(qmc5883p_config).await {
-        error!("Failed to init QMC 5883p sensor: {:?}", e);
-        return;
-    } Timer::after_millis(50).await;
-
-    /* Task: Read QMC 5883P Data */
-    loop {
-        match qmc5883p.read_x_y_z().await {
-            Ok([x, y, z]) => info!("fields: x ={} y={} z={}", x, y, z),
-            Err(e) => error!("Failed to read QMC5883P fields: {:?}", e),
+    let qmc5883p = match init_qmc5883p(qmc5883p_i2c, qmc5883p_scl, qmc5883p_sda, Irqs).await {
+        Ok(q) => q,
+        Err(_) => loop {
+            error!("QMC 5883P init failed, check wiring");
+            Timer::after_secs(1).await;
         }
-        Timer::after_millis(100).await;
+    };
 
-        // match qmc5883p.read_magnitude().await {
-        //     Ok(m) => info!("magnitude = {}", m),
-        //     Err(e) => error!("failed to magnitude: {:?}", e),
-        // }
-        // Timer::after_millis(100).await;
-        // TODO: their read_magnitude function is very simple:
-        /*
-            pub async fn read_magnitude(&mut self) -> Result<f32, QmcError<E>> {
-            let data = self.read_x_y_z().await?;
-            let x = data[0] as f32;
-            let y = data[1] as f32;
-            let z = data[2] as f32;
-
-            let magnitude = (x * x + y * y + z * z).sqrt();
-            Ok(magnitude)
-        }
-         */
-    }
-
-
-    // info!("Spawn sensor tasks");
-    // spawner.spawn(bme280_task(bme280).unwrap());
-    // spawner.spawn(mpu6050_task(mpu6050).unwrap());
+    info!("Spawn sensor tasks");
+    spawner.spawn(bme280_task(bme280).unwrap());
+    spawner.spawn(mpu6050_task(mpu6050).unwrap());
+    spawner.spawn(qmc5883p_task(qmc5883p).unwrap());
 }
 
 /* Metadata */
