@@ -29,8 +29,6 @@ Crux has two jobs:
 - **The firmware** that reads real sensors on real hardware and shows what works and what breaks.
 - **A sandbox for `nav-core`.** Anything that does not need to know about a specific chip, pin, or board (sensor sample types, calibration, weather and air-data math, attitude and heading filters, fusion) is developed as `nav-core`, so it can be lifted out and used by future projects on other hardware. Crux is where that code gets its first real-world testing.
 
-Today this logic lives in the `gdu` crate (psychrometric and altitude calculations, with IMU and magnetometer processing being added). The plan is for it to become `nav-core`.
-
 ## What is an embedded navigation subsystem?
 
 A navigation system answers a few questions continuously: *Which way am I pointing? How fast and in which direction am I moving? How high am I? Where am I?*
