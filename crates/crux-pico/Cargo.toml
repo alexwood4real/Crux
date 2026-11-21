@@ -1,10 +1,10 @@
 [package]
 edition = "2024"
-name = "firmware"
+name = "crux-pico"
 version = "0.1.0"
 
 [dependencies]
-gdu = { path = "../gdu" }
+nav-core = { path = "../nav-core" }
 
 bme280 = "0.5.1"
 mpu6050-nostd = "0.2.0"

@@ -12,7 +12,7 @@
 /* Public Crates */
 use bme280::spi::BME280;
 use embassy_time::{Duration, Timer};
-use gdu::psychometric::SensorData;
+use nav_core::psychometric::SensorData;
 use log::{error, info};
 
 /* Local Crates */
