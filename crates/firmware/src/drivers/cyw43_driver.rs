@@ -1,3 +1,15 @@
+/**************************************************************
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ * Crux
+ *
+ * FILE:
+ * cyw43_driver.rs
+ *
+ * Description:
+ * Driver for CYW43 chip. Initializes Wi-Fi and heartbeat
+ **************************************************************/
+
+/* Public Crates */
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use embassy_executor::Spawner;

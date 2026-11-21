@@ -1,6 +1,6 @@
 /**************************************************************
  * SPDX-License-Identifier: MIT OR Apache-2.0
- * Barometer
+ * nav-core
  *
  * FILE:
  * saturation_vapor_pressure.rs

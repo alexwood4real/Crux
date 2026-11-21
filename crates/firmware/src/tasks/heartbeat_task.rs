@@ -1,3 +1,15 @@
+/**************************************************************
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ * Crux
+ *
+ * FILE:
+ * heartbeat_task.rs
+ *
+ * Description:
+ * Task that blinks LED on Pico 2 W board
+ **************************************************************/
+
+ /* Public Crates */
 use embassy_time::{Duration, Timer};
 use log::info;
 

@@ -1,13 +1,13 @@
 /**************************************************************
  * SPDX-License-Identifier: MIT OR Apache-2.0
- * Barometer
+ * nav-core
  *
  * FILE:
  * psychometric.rs
  *
  * Description:
- * Main driver in order to calculate everything given from
- * BME 280 sensor. Gets temp, humidity, pressure, and others
+ * Handler to process psychometric data from 
+ * temperature, pressure, and humidity
  **************************************************************/
 
 pub mod absolute_humidity;

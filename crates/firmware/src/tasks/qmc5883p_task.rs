@@ -1,6 +1,19 @@
+/**************************************************************
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ * Crux
+ *
+ * FILE:
+ * qmc5883_task.rs
+ *
+ * Description:
+ * Task that reads and processes data from QMC 5883P
+ **************************************************************/
+
+/* Public Crates */
 use embassy_time::Timer;
 use log::{error, info};
 
+/* Local Crates */
 use crate::drivers::qmc5883p_driver::QMC5883PI2c;
 
 #[embassy_executor::task]

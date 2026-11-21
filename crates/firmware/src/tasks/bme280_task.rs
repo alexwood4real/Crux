@@ -1,13 +1,25 @@
+/**************************************************************
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ * Crux
+ *
+ * FILE:
+ * bme280_task.rs
+ *
+ * Description:
+ * Task that reads and processes data from BME 280
+ **************************************************************/
+
+/* Public Crates */
 use bme280::spi::BME280;
 use embassy_time::{Duration, Timer};
 use gdu::psychometric::SensorData;
 use log::{error, info};
 
+/* Local Crates */
 use crate::drivers::bme280_driver::BME280Spi;
 
 #[embassy_executor::task]
 pub async fn bme280_task(mut bme280: BME280<BME280Spi>) -> ! {
-    /* BME280 task */
     loop {
         /* read data from single sample */
         let measurements = match bme280.measure(&mut embassy_time::Delay) {
@@ -28,8 +40,6 @@ pub async fn bme280_task(mut bme280: BME280<BME280Spi>) -> ! {
 
         /* compute weather data from sensor data */
         if let Some(weather_data) = sensor_data.calculate() {
-            /* calculate weather data */
-            // DEBUG: info!("BME OK");
             info!("Temperature: {} C", weather_data.temperature);
             info!("Pressure: {} hPa", weather_data.pressure);
             info!("Humidity: {} %", weather_data.humidity);

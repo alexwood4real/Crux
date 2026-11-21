@@ -1,3 +1,15 @@
+/**************************************************************
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ * Crux
+ *
+ * FILE:
+ * bme289_driver.rs
+ *
+ * Description:
+ * Driver for BME 280 sensor
+ **************************************************************/
+
+/* Public Crates */
 use bme280::spi::BME280;
 use embassy_rp::{
     Peri,
@@ -10,6 +22,7 @@ use embedded_hal_1::spi::{ErrorType, Operation, SpiDevice};
 use embedded_hal_bus::spi::{ExclusiveDevice, NoDelay};
 use log::{error, info};
 
+/* Local Types */
 pub struct Bme280SpiFix<D>(pub D);
 
 impl<D: SpiDevice> ErrorType for Bme280SpiFix<D> {
@@ -44,14 +57,16 @@ pub fn init_bme280(
     sdo: Peri<'static, PIN_16>,
     cs: Peri<'static, PIN_17>,
 ) -> Result<BME280<BME280Spi>, ()> {
+    /* set sensor configuration */
     let mut config = Config::default();
     config.frequency = 1_000_000; // 1 MHz
 
-    info!("BME 280 set up spi device and bus");
+    /* set up SPI bus */
     let spi_cs = Output::new(cs, Level::High);
     let spi_bus = Spi::new_blocking(spi_periph, sck, sdi, sdo, config);
     let spi_device = ExclusiveDevice::new_no_delay(spi_bus, spi_cs).unwrap();
 
+    /* create BME 280 */
     let mut bme280 = match BME280::new(Bme280SpiFix(spi_device)) {
         Ok(b) => b,
         Err(e) => {
@@ -60,13 +75,12 @@ pub fn init_bme280(
         }
     };
 
-    info!("BME 280 initialization");
+    info!("Initialize BME 280");
     let mut delay = Delay;
     if let Err(e) = bme280.init(&mut delay) {
         error!("BME 280 init failed: {:?}", e);
         return Err(());
     };
 
-    info!("BME 280 init success");
     Ok(bme280)
 }

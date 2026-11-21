@@ -1,6 +1,6 @@
 /**************************************************************
  * SPDX-License-Identifier: MIT OR Apache-2.0
- * Barometer
+ * nav-core
  *
  * FILE:
  * absolute_humidity.rs

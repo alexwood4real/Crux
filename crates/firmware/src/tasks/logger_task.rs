@@ -1,3 +1,15 @@
+/**************************************************************
+ * SPDX-License-Identifier: MIT OR Apache-2.0
+ * Crux
+ *
+ * FILE:
+ * logger_task.rs
+ *
+ * Description:
+ * Task that logs information to terminal
+ **************************************************************/
+
+/* Public Crates */
 use embassy_rp::{peripherals::USB, usb::Driver};
 
 #[embassy_executor::task]

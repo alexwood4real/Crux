@@ -1,19 +1,18 @@
 /**************************************************************
  * SPDX-License-Identifier: MIT OR Apache-2.0
- * PFD
+ * Crux
  *
  * FILE:
  * main.rs
  *
  * Description:
- * Blinking LED ensures Wi-Fi connection and data collection
- * Using BME280, MPU6050, QMC5883P sensors and GPS Module
+ * Initializes sensors, buses, and spawns tasks
  **************************************************************/
 
 #![no_std]
 #![no_main]
 
-/* Crates */
+/* Public Crates */
 use core::fmt::Write;
 use core::mem::MaybeUninit;
 use core::panic::PanicInfo;
@@ -22,7 +21,7 @@ use embassy_executor::Spawner;
 use embassy_rp::{
     bind_interrupts,
     dma::InterruptHandler as DmaHandler,
-    i2c::{InterruptHandler as I2cHandler},
+    i2c::InterruptHandler as I2cHandler,
     peripherals::{DMA_CH0, I2C0, I2C1, PIO0, USB},
     pio::InterruptHandler as PioHanlder,
     usb::{Driver as UsbDriver, InterruptHandler as UsbHandler},
@@ -32,11 +31,17 @@ use log::{error, info};
 
 /* Tasks */
 mod tasks;
-use tasks::{bme280_task::bme280_task, logger_task::logger_task, mpu6050_task::mpu6050_task, qmc5883_task::qmc5883p_task};
+use tasks::{
+    bme280_task::bme280_task, logger_task::logger_task, mpu6050_task::mpu6050_task,
+    qmc5883p_task::qmc5883p_task,
+};
 
 /* Drivers */
 mod drivers;
-use drivers::{bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050, qmc5883p_driver::init_qmc5883p};
+use drivers::{
+    bme280_driver::init_bme280, cyw43_driver::init_cyw43, mpu6050_driver::init_mpu6050,
+    qmc5883p_driver::init_qmc5883p,
+};
 
 /* Interrupt Handlers */
 bind_interrupts!(struct Irqs {
@@ -119,26 +124,21 @@ fn report_last_panic() {
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    info!("PFD start");
-
-    /* Init RP2350 peripherals */
+    /* init RP2350 peripherals */
     let p: embassy_rp::Peripherals = embassy_rp::init(Default::default());
 
-    /* Initialize Logger */
     info!("Configure logger");
     let driver = UsbDriver::new(p.USB, Irqs);
     spawner.spawn(logger_task(driver).unwrap());
     Timer::after(Duration::from_secs(3)).await;
     report_last_panic();
 
-    /* Configure CYW43 chip */
     info!("Configuring CYW43 Wi-Fi chip");
     init_cyw43(
         spawner, p.PIN_23, p.PIN_25, p.PIO0, p.PIN_24, p.PIN_29, p.DMA_CH0, Irqs,
     )
     .await;
 
-    /* Configure BME 280 sensor */
     info!("Configure BME 280 sensor");
     let bme280_spi = p.SPI0;
     let bme280_sck = p.PIN_18;
@@ -153,7 +153,6 @@ async fn main(spawner: Spawner) {
         },
     };
 
-    /* Configure MPU 6050 Sensor */
     info!("Configure MPU 6050 sensor");
     let mpu6050_i2c = p.I2C0;
     let mpu6050_sda = p.PIN_4;
@@ -163,10 +162,9 @@ async fn main(spawner: Spawner) {
         Err(_) => loop {
             error!("MPU 6050 init failed, check wiring");
             Timer::after_secs(1).await;
-        }
+        },
     };
 
-    /* Configure QMC 5883P */
     info!("Configure QMC 5883P sensor");
     let qmc5883p_i2c = p.I2C1;
     let qmc5883p_sda = p.PIN_14;
@@ -176,7 +174,7 @@ async fn main(spawner: Spawner) {
         Err(_) => loop {
             error!("QMC 5883P init failed, check wiring");
             Timer::after_secs(1).await;
-        }
+        },
     };
 
     info!("Spawn sensor tasks");
@@ -189,8 +187,8 @@ async fn main(spawner: Spawner) {
 #[unsafe(link_section = ".bi_entries")]
 #[used]
 pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
-    embassy_rp::binary_info::rp_program_name!(c"PFD"),
-    embassy_rp::binary_info::rp_program_description!(c"This program runs the Primary Flight Deck."),
+    embassy_rp::binary_info::rp_program_name!(c"Crux"),
+    embassy_rp::binary_info::rp_program_description!(c"This program runs Crux, a Navigation Subsystem."),
     embassy_rp::binary_info::rp_cargo_version!(),
     embassy_rp::binary_info::rp_program_build_attribute!(),
 ];
