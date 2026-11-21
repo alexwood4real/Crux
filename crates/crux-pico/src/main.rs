@@ -13,10 +13,6 @@
 #![no_main]
 
 /* Public Crates */
-use core::fmt::Write;
-use core::mem::MaybeUninit;
-use core::panic::PanicInfo;
-use core::ptr::{addr_of, addr_of_mut};
 use embassy_executor::Spawner;
 use embassy_rp::{
     bind_interrupts,
@@ -28,6 +24,9 @@ use embassy_rp::{
 };
 use embassy_time::{Duration, Timer};
 use log::{error, info};
+
+/* Modules */
+mod panic;
 
 /* Tasks */
 mod tasks;
@@ -52,76 +51,6 @@ bind_interrupts!(struct Irqs {
     USBCTRL_IRQ =>UsbHandler<USB>;
 });
 
-/* Constants */
-const PANIC_MAGIC: u32 = 0x5041_4E43;
-
-/* Debugging */
-#[repr(C)]
-struct PanicRecord {
-    magic: u32,
-    len: u32,
-    msg: [u8; 240],
-}
-
-// .uninit is not zeroed at boot, so this survives a reset
-#[unsafe(link_section = ".uninit.panic_record")]
-static mut PANIC_RECORD: MaybeUninit<PanicRecord> = MaybeUninit::uninit();
-
-struct Cursor<'a> {
-    buf: &'a mut [u8],
-    pos: usize,
-}
-impl Write for Cursor<'_> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let n = s.len().min(self.buf.len() - self.pos);
-        self.buf[self.pos..self.pos + n].copy_from_slice(&s.as_bytes()[..n]);
-        self.pos += n;
-        Ok(())
-    }
-}
-
-fn record(args: core::fmt::Arguments) -> ! {
-    unsafe {
-        let rec = addr_of_mut!(PANIC_RECORD) as *mut PanicRecord;
-        let mut c = Cursor {
-            buf: &mut *addr_of_mut!((*rec).msg),
-            pos: 0,
-        };
-        let _ = c.write_fmt(args);
-        (*rec).len = c.pos as u32;
-        (*rec).magic = PANIC_MAGIC;
-    }
-    cortex_m::peripheral::SCB::sys_reset()
-}
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    record(format_args!("{}", info))
-}
-
-#[cortex_m_rt::exception]
-unsafe fn HardFault(ef: &cortex_m_rt::ExceptionFrame) -> ! {
-    record(format_args!(
-        "HardFault pc={:#010x} lr={:#010x}",
-        ef.pc(),
-        ef.lr()
-    ))
-}
-
-fn report_last_panic() {
-    unsafe {
-        let rec = addr_of_mut!(PANIC_RECORD) as *mut PanicRecord;
-        if core::ptr::read_volatile(addr_of!((*rec).magic)) == PANIC_MAGIC {
-            let len = (core::ptr::read_volatile(addr_of!((*rec).len)) as usize).min(240);
-            let msg = &*addr_of!((*rec).msg);
-            if let Ok(s) = core::str::from_utf8(&msg[..len]) {
-                log::error!("LAST PANIC: {}", s);
-            }
-            core::ptr::write_volatile(addr_of_mut!((*rec).magic), 0);
-        }
-    }
-}
-
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     /* init RP2350 peripherals */
@@ -131,7 +60,7 @@ async fn main(spawner: Spawner) {
     let driver = UsbDriver::new(p.USB, Irqs);
     spawner.spawn(logger_task(driver).unwrap());
     Timer::after(Duration::from_secs(3)).await;
-    report_last_panic();
+    panic::report_last_panic();
 
     info!("Configuring CYW43 Wi-Fi chip");
     init_cyw43(

@@ -19,7 +19,6 @@ embassy-time = { version = "0.5.1" }
 embassy-rp = { version = "0.10.0", features = ["unstable-pac", "time-driver", "critical-section-impl", "rp235xa", "binary-info"] }
 embassy-usb = { version = "0.6.0" }
 embassy-net = { version = "0.9.1", features = ["icmp", "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns"] }
-embassy-net-wiznet = { version = "0.3.0" }
 embassy-futures = { version = "0.1.2" }
 embassy-usb-logger = { version = "0.6.0" }
 cyw43 = { version = "0.7.0", features = ["firmware-logs"] }
@@ -32,11 +31,3 @@ embedded-storage = { version = "0.3" }
 static_cell = "2.1"
 portable-atomic = { version = "1.5", features = ["critical-section"] }
 log = "0.4"
-embedded-sdmmc = "0.10.0"
-serde-json-core = "0.6"
-
-[build-dependencies]
-regex = "1.11.0"
-
-[target."thumbv8m.main-none-eabihf".dependencies]
-rp235x-hal = { version = "0.4", features = ["rt", "critical-section-impl"] }
