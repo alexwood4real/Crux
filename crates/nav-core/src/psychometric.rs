@@ -36,8 +36,8 @@ pub use vapor_pressure::calculate_vapor_pressure;
 pub use vapor_pressure_deficit::calculate_vapor_pressure_deficit;
 pub use wet_bulb::calculate_wet_bulb;
 
-/* holds initial sensor reading data */
-pub struct SensorData {
+/* holds initial baro reading data */
+pub struct BaroData {
     pub temperature: f32, /* °C */
     pub pressure: f32,    /* Pascals */
     pub humidity: f32,    /* % water vapor in air  */
@@ -62,10 +62,10 @@ pub struct PsychometricData {
     pub heat_index: f32,                /* Heat Index (°F) */
 }
 
-/* calculate data from initial sensor readings */
-impl SensorData {
+/* calculate data from initial baro readings */
+impl BaroData {
     pub fn calculate(&self) -> Option<PsychometricData> {
-        /* unwrap values from sensor */
+        /* unwrap values from baro */
         let temp: f32 = self.temperature;
         let pres: f32 = self.pressure;
         let hum: f32 = self.humidity;

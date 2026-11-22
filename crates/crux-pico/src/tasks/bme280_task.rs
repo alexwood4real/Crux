@@ -12,7 +12,7 @@
 /* Public Crates */
 use bme280::spi::BME280;
 use embassy_time::{Duration, Timer};
-use nav_core::psychometric::SensorData;
+use nav_core::psychometric::BaroData;
 use log::{error, info};
 
 /* Local Crates */
@@ -32,7 +32,7 @@ pub async fn bme280_task(mut bme280: BME280<BME280Spi>) -> ! {
         };
 
         /* convert sample to readable data */
-        let sensor_data: SensorData = SensorData {
+        let sensor_data: BaroData = BaroData {
             temperature: measurements.temperature,
             pressure: measurements.pressure,
             humidity: measurements.humidity,
