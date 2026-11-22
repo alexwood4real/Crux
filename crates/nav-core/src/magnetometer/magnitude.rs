@@ -7,7 +7,7 @@
  *
  * Description:
  * Earth's magnetic field is composed of seven parameters.
- * Given the Veritical Intensity (z) along with the North (x) and Easy (y)
+ * Given the Veritical Intensity (z) along with the North (x) and East (y)
  * components, we are able to calculate the Total Intensity (F) which is known
  * as the magnitude. 
  *
@@ -24,7 +24,5 @@
  pub fn calculate_magnitude(f: [f32; 3]) -> f32 {
     let [x, y, z] = f;
 
-    let mag: f32 = sqrtf( powf(x, 2.0) + powf(y, 2.0) + powf(z, 2.0));
-
-    mag
+    sqrtf(powf(x, 2.0) + powf(y, 2.0) + powf(z, 2.0))
  }
